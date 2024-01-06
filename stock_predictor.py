@@ -5,11 +5,9 @@ import yfinance as yf
 from sklearn.preprocessing import MinMaxScaler
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import LSTM, Dropout, Dense
-from sklearn.metrics import mean_squared_error
-from itertools import product
-import ipywidgets as widgets
-from IPython.display import display, HTML
 import matplotlib.pyplot as plt
+import ipywidgets as widgets
+from IPython.display import display
 
 # Function to preprocess and scale the data
 def preprocess_data(data, prediction_days):
@@ -41,15 +39,11 @@ def create_and_train_model(x_train, y_train, epochs, batch_size, loading_bar):
     model.add(Dense(units=1))
     model.compile(optimizer='adam', loss='mean_squared_error')
 
-    # Calculate the total number of batches
-    total_batches = int(np.ceil(x_train.shape[0] / batch_size))
+    loading_bar.max = epochs
 
     for epoch in range(epochs):
-        for batch in range(total_batches):
-            # Your training logic here
-
-            # Update loading bar
-            loading_bar.value += 1
+        model.fit(x_train, y_train, epochs=1, batch_size=batch_size, verbose=0)
+        loading_bar.value = epoch + 1
 
     return model
 
@@ -95,72 +89,12 @@ def plot_stock_prices(actual_prices, predicted_prices, company):
     # Display the plot using the IPython display function
     display(plt.gcf())
 
-# Function for hyperparameter tuning
-def hyperparameter_tuning(data, company, end_date_training, end_date_testing):
-    # Set up hyperparameter grid for grid search
-    hyperparameter_grid = {
-        'epochs': [25, 50, 100],
-        'batch_size': [8, 16, 32],
-        'prediction_days': [7, 14, 21]
-    }
-
-    best_model = None
-    best_mse = float('inf')
-
-    # Calculate the total number of combinations for loading bar
-    total_combinations = len(list(product(*hyperparameter_grid.values())))
-    loading_bar = widgets.IntProgress(
-        value=0,
-        min=0,
-        max=total_combinations,
-        description='Hyperparameter Tuning:',
-        style={'description_width': 'initial'},
-        layout=widgets.Layout(width='50%')
-    )
-    display(loading_bar)
-
-    for i, params in enumerate(product(*hyperparameter_grid.values())):
-        epochs, batch_size, prediction_days = params
-
-        x_train, y_train, scaler = preprocess_data(data, prediction_days)
-        model = create_and_train_model(x_train, y_train, epochs, batch_size, loading_bar)
-
-        # Download and preprocess testing data
-        data_testing = yf.download(company, start=end_date_training, end=end_date_testing)
-
-        if data_testing.empty:
-            raise ValueError("Empty testing dataset. Please check the data.")
-
-        # Predict stock prices
-        actual_prices = data_testing['Close'].values
-        predicted_prices = predict_stock_prices(model, data_testing, scaler, prediction_days)
-
-        # Calculate Mean Squared Error (MSE)
-        mse = mean_squared_error(actual_prices[prediction_days:], predicted_prices)
-
-        if mse < best_mse:
-            best_mse = mse
-            best_model = model
-
-        # Update loading bar
-        loading_bar.value += 1
-
-    return best_model, scaler, prediction_days, data_testing, company
-
-# Function to bootstrap predictions for uncertainty estimation
-def bootstrap_predictions(model, x_test, scaler, num_iterations=100):
-    predicted_prices_distribution = []
-
-    for _ in range(num_iterations):
-        predictions = model.predict(x_test)
-        predictions = scaler.inverse_transform(predictions)
-        predicted_prices_distribution.append(predictions.flatten())
-
-    return np.array(predicted_prices_distribution)
-
 # Function to fetch data, train model, and plot graph
 def process_company(widget):
     company = entry_company.value
+    prediction_days = entry_prediction_days.value
+    epochs = entry_epochs.value
+    batch_size = entry_batch_size.value
     start_date = '2010-01-01'
     end_date_training = '2022-01-01'
     end_date_testing = dt.datetime.now().strftime('%Y-%m-%d')
@@ -168,50 +102,47 @@ def process_company(widget):
     try:
         # Download and preprocess training data
         data_training = yf.download(company, start=start_date, end=end_date_training)
+        x_train, y_train, scaler = preprocess_data(data_training, prediction_days)
 
-        # Hyperparameter tuning
-        best_model, scaler, prediction_days, data_testing, company = hyperparameter_tuning(
-            data_training, company, end_date_training, end_date_testing
+        # Create loading bar widget
+        loading_bar = widgets.IntProgress(
+            value=0,
+            min=0,
+            max=epochs,
+            description='Training:',
+            style={'description_width': 'initial'},
+            layout=widgets.Layout(width='50%')
         )
 
-        # Visualize actual and predicted prices using the best model
-        actual_prices = data_testing['Close'].values
-        x_test = data_testing['Close'].values[-prediction_days:]
-        x_test = x_test.reshape(-1, 1)
-        x_test = scaler.transform(x_test)
-        x_test = np.reshape(x_test, (1, prediction_days, 1))
+        # Display loading bar
+        display(loading_bar)
 
-        # Bootstrap predictions for uncertainty estimation
-        predicted_prices_distribution = bootstrap_predictions(best_model, x_test, scaler)
+        # Create and train the LSTM model
+        model = create_and_train_model(x_train, y_train, epochs, batch_size, loading_bar)
 
-        # Plot actual and predicted prices
-        plot_stock_prices(actual_prices, np.median(predicted_prices_distribution, axis=0), company)
+        # Download and preprocess testing data
+        data_testing = yf.download(company, start=end_date_training, end=end_date_testing)
 
-        # Save the plot as an image
-        save_plot_as_image(actual_prices, np.median(predicted_prices_distribution, axis=0), company)
-
-        # Real-time prediction for tomorrow using the best model
-        last_days_data = data_testing['Close'].values[-prediction_days:].reshape(-1, 1)
-        last_days_data = scaler.transform(last_days_data)
-        real_data = np.reshape(last_days_data, (1, prediction_days, 1))
-        prediction_real_time = best_model.predict(real_data)
-        prediction_real_time = scaler.inverse_transform(prediction_real_time)
-
-        # Display the prediction in a nice font
-        result_label.value = f"<p style='font-size:20px; color:blue;'>Best Model - Real-time Prediction for Tomorrow: {prediction_real_time[0][0]:.2f}</p>"
-
+        if data_testing.empty:
+            raise ValueError("Empty testing dataset. Please check the data.")
     except Exception as e:
         result_label.value = f"Error: {e}"
 
-# GUI Components
 entry_company = widgets.Text(description="Enter Company:")
+entry_prediction_days = widgets.IntText(description="Enter Prediction Days:")
+entry_epochs = widgets.IntText(description="Enter Epochs:")
+entry_batch_size = widgets.IntText(description="Enter Batch Size:")
 btn_process = widgets.Button(description="Process Company")
-result_label = widgets.HTML()
+result_label = widgets.Label()
 
 # Assign the callback function to the button
 btn_process.on_click(process_company)
 
 # Display widgets
 display(entry_company)
+display(entry_prediction_days)
+display(entry_epochs)
+display(entry_batch_size)
 display(btn_process)
 display(result_label)
+
