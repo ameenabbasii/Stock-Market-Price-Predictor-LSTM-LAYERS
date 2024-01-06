@@ -90,6 +90,7 @@ def plot_stock_prices(actual_prices, predicted_prices, company):
     display(plt.gcf())
 
 # Function to fetch data, train model, and plot graph
+# Function to fetch data, train model, and plot graph
 def process_company(widget):
     company = entry_company.value
     prediction_days = entry_prediction_days.value
@@ -125,8 +126,29 @@ def process_company(widget):
 
         if data_testing.empty:
             raise ValueError("Empty testing dataset. Please check the data.")
+
+        # Predict stock prices
+        actual_prices = data_testing['Close'].values
+        predicted_prices = predict_stock_prices(model, data_testing, scaler, prediction_days)
+
+        # Visualize actual and predicted prices
+        plot_stock_prices(actual_prices, predicted_prices, company)
+
+        # Save the plot as an image
+        save_plot_as_image(actual_prices, predicted_prices, company)
+
+        # Real-time prediction for tomorrow
+        last_days_data = data_testing['Close'].values[-prediction_days:].reshape(-1, 1)
+        last_days_data = scaler.transform(last_days_data)
+        real_data = np.reshape(last_days_data, (1, prediction_days, 1))
+        prediction_real_time = model.predict(real_data)
+        prediction_real_time = scaler.inverse_transform(prediction_real_time)
+
+        result_label.value = f"Real-time Prediction for Tomorrow: {prediction_real_time[0][0]}"
+
     except Exception as e:
         result_label.value = f"Error: {e}"
+
 
 entry_company = widgets.Text(description="Enter Company:")
 entry_prediction_days = widgets.IntText(description="Enter Prediction Days:")
@@ -145,4 +167,5 @@ display(entry_epochs)
 display(entry_batch_size)
 display(btn_process)
 display(result_label)
+
 
