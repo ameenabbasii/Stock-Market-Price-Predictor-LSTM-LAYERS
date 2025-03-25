@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 import ipywidgets as widgets
 from IPython.display import display
 
-# Function to preprocess and scale the data
+
 def preprocess_data(data, prediction_days):
     if data.empty:
         raise ValueError("Empty dataset. Please check the data.")
@@ -27,7 +27,7 @@ def preprocess_data(data, prediction_days):
 
     return x_train, y_train, scaler
 
-# Function to create and train the LSTM model
+
 def create_and_train_model(x_train, y_train, epochs, batch_size, loading_bar):
     model = Sequential()
     model.add(LSTM(units=50, return_sequences=True, input_shape=(x_train.shape[1], 1)))
@@ -47,7 +47,7 @@ def create_and_train_model(x_train, y_train, epochs, batch_size, loading_bar):
 
     return model
 
-# Function to predict stock prices
+
 def predict_stock_prices(model, data, scaler, prediction_days):
     model_inputs = data['Close'].values.reshape(-1, 1)
     model_inputs = scaler.transform(model_inputs)
@@ -64,7 +64,7 @@ def predict_stock_prices(model, data, scaler, prediction_days):
 
     return predicted_prices
 
-# Function to save the plot as an image
+
 def save_plot_as_image(actual_prices, predicted_prices, company):
     plt.plot(actual_prices, color="black", label=f"Actual {company} Prices")
     plt.plot(predicted_prices, color="green", label=f"Predicted {company} Prices")
@@ -73,11 +73,11 @@ def save_plot_as_image(actual_prices, predicted_prices, company):
     plt.ylabel(f"{company} Share Price")
     plt.legend()
 
-    # Save the plot as an image file
-    plt.savefig(f"{company}_stock_prediction.png")
-    plt.close()  # Close the plot to avoid displaying it interactively
 
-# Function to visualize actual and predicted prices
+    plt.savefig(f"{company}_stock_prediction.png")
+    plt.close() 
+
+
 def plot_stock_prices(actual_prices, predicted_prices, company):
     plt.plot(actual_prices, color="black", label=f"Actual {company} Prices")
     plt.plot(predicted_prices, color="green", label=f"Predicted {company} Prices")
@@ -86,11 +86,10 @@ def plot_stock_prices(actual_prices, predicted_prices, company):
     plt.ylabel(f"{company} Share Price")
     plt.legend()
 
-    # Display the plot using the IPython display function
+
     display(plt.gcf())
 
-# Function to fetch data, train model, and plot graph
-# Function to fetch data, train model, and plot graph
+
 def process_company(widget):
     company = entry_company.value
     prediction_days = entry_prediction_days.value
@@ -101,11 +100,11 @@ def process_company(widget):
     end_date_testing = dt.datetime.now().strftime('%Y-%m-%d')
 
     try:
-        # Download and preprocess training data
+
         data_training = yf.download(company, start=start_date, end=end_date_training)
         x_train, y_train, scaler = preprocess_data(data_training, prediction_days)
 
-        # Create loading bar widget
+
         loading_bar = widgets.IntProgress(
             value=0,
             min=0,
@@ -115,29 +114,24 @@ def process_company(widget):
             layout=widgets.Layout(width='50%')
         )
 
-        # Display loading bar
         display(loading_bar)
 
-        # Create and train the LSTM model
+
         model = create_and_train_model(x_train, y_train, epochs, batch_size, loading_bar)
 
-        # Download and preprocess testing data
+
         data_testing = yf.download(company, start=end_date_training, end=end_date_testing)
 
         if data_testing.empty:
             raise ValueError("Empty testing dataset. Please check the data.")
 
-        # Predict stock prices
         actual_prices = data_testing['Close'].values
         predicted_prices = predict_stock_prices(model, data_testing, scaler, prediction_days)
 
-        # Visualize actual and predicted prices
         plot_stock_prices(actual_prices, predicted_prices, company)
 
-        # Save the plot as an image
         save_plot_as_image(actual_prices, predicted_prices, company)
 
-        # Real-time prediction for tomorrow
         last_days_data = data_testing['Close'].values[-prediction_days:].reshape(-1, 1)
         last_days_data = scaler.transform(last_days_data)
         real_data = np.reshape(last_days_data, (1, prediction_days, 1))
@@ -157,7 +151,6 @@ entry_batch_size = widgets.IntText(description="Enter Batch Size:")
 btn_process = widgets.Button(description="Process Company")
 result_label = widgets.Label()
 
-# Assign the callback function to the button
 btn_process.on_click(process_company)
 
 # Display widgets
