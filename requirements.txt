@@ -1,0 +1,7 @@
+numpy==1.24.2
+pandas==1.5.3
+yfinance==0.2.22
+scikit-learn==1.2.2
+tensorflow==2.12.0
+matplotlib==3.7.1
+ipywidgets==8.0.0
