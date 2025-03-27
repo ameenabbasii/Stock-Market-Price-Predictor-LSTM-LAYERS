@@ -8,7 +8,7 @@ This Python script employs **Long Short-Term Memory (LSTM)** neural networks to 
 - **Real-time Prediction** – Generates **next-day stock price forecasts**, offering timely insights for decision-making.  
 - **Visualization** – Automatically generates and saves charts comparing actual vs. predicted stock prices.  
 
-## 📦 Installation
+## Installation
 
 Ensure you have Python installed. Then, install the required dependencies:
 
